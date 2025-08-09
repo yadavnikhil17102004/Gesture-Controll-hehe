@@ -9,8 +9,9 @@ import pyautogui
 pyautogui.FAILSAFE = False
 
 # Configuration parameters
-SMOOTHING = 8  # Higher values create smoother cursor movement (increased for smoother movement)
-FINGER_DETECTION_THRESHOLD = 0.6  # Threshold for finger up detection
+SMOOTHING = 4  # Lower value for quicker response to scroll gestures
+SCROLL_SENSITIVITY = 30  # Scroll sensitivity (higher = more scroll per movement)
+SCROLL_THRESHOLD = 10  # Minimum pixel movement to trigger scroll
 CALIBRATION_TIME = 3.0  # Duration of calibration in seconds
 FPS_SMOOTH = 0.9  # Smoothing factor for FPS calculation
 
@@ -18,7 +19,6 @@ mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.75, min_tracking_confidence=0.7)
 mp_draw = mp.solutions.drawing_utils
 
-screen_w, screen_h = pyautogui.size()
 cap = cv2.VideoCapture(0)
 
 def distance(a, b):
@@ -65,6 +65,7 @@ def calibrate_control_box(cap, hands, seconds=3.0):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyWindow('Calibrate')
+    
     if not xs or not ys:
         h, w = 480, 640
         ret, frame = cap.read()
@@ -91,15 +92,17 @@ def calibrate_control_box(cap, hands, seconds=3.0):
 x1, y1, x2, y2 = calibrate_control_box(cap, hands, CALIBRATION_TIME)
 
 # Initialize variables
-prev_screen_x, prev_screen_y = pyautogui.position()
 prev_time = time.time()
 fps = 0.0
-cursor_active = False
+scroll_active = False
+prev_middle_y = None
+prev_index_y = None
+prev_hand_center_y = None
 
-print("=== Hand Gesture Mouse Control ===")
+print("=== Two-Finger Scroll Control ===")
 print("INSTRUCTIONS:")
-print("- Show ONLY index and middle fingers up to activate cursor")
-print("- Hide or show other fingers to deactivate cursor")
+print("- Show index and middle fingers up to activate scrolling")
+print("- Move fingers up/down to scroll")
 print("- Press 'q' to quit")
 print("- Press 'c' to recalibrate control box")
 
@@ -125,32 +128,28 @@ while True:
     # Create a copy for drawing
     overlay = frame.copy()
     
-    # Draw control box
-    cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    cv2.putText(overlay, "Control Area", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-    
     # Calculate FPS
     now = time.time()
     instant_fps = 1.0 / max(0.001, now - prev_time)  # Prevent division by zero
     fps = fps * FPS_SMOOTH + instant_fps * (1.0 - FPS_SMOOTH)
     
     # Default status
-    cursor_active = False
+    scroll_active = False
     status_text = "Inactive"
     
     if res.multi_hand_landmarks:
         # Extract hand landmarks
         landmarks = res.multi_hand_landmarks[0].landmark
         
-        # Get key finger positions for cursor control
+        # Get key finger positions for scroll control
         index_tip = landmark_to_pixel(landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP], w, h)
         middle_tip = landmark_to_pixel(landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP], w, h)
         
-        # Calculate center point between index and middle fingers
-        cursor_x = (index_tip[0] + middle_tip[0]) // 2
-        cursor_y = (index_tip[1] + middle_tip[1]) // 2
+        # Calculate center point between fingers for scroll reference
+        hand_center_x = (index_tip[0] + middle_tip[0]) // 2
+        hand_center_y = (index_tip[1] + middle_tip[1]) // 2
         
-        # Check if only index and middle fingers are up
+        # Check if index and middle fingers are up
         is_index_up = is_finger_up(
             landmarks, 
             mp_hands.HandLandmark.INDEX_FINGER_TIP,
@@ -183,54 +182,68 @@ while True:
             w, h
         )
         
-        # Check thumb separately (thumb is considered "down" for this purpose)
+        # Check thumb separately
         thumb_tip = landmark_to_pixel(landmarks[mp_hands.HandLandmark.THUMB_TIP], w, h)
         thumb_cmc = landmark_to_pixel(landmarks[mp_hands.HandLandmark.THUMB_CMC], w, h)
         is_thumb_out = thumb_tip[0] > thumb_cmc[0]  # For right hand
         
-        # Activate cursor only when index and middle are up, others are down
-        cursor_active = (is_index_up and is_middle_up and 
+        # Activate scroll only when both index and middle are up, others are down
+        scroll_active = (is_index_up and is_middle_up and 
                          not is_ring_up and not is_pinky_up and not is_thumb_out)
         
         # Draw the hand landmarks
         mp_draw.draw_landmarks(overlay, res.multi_hand_landmarks[0], mp_hands.HAND_CONNECTIONS)
         
-        # Highlight the cursor position
-        if cursor_active and cursor_x >= x1 and cursor_x <= x2 and cursor_y >= y1 and cursor_y <= y2:
-            # Draw the cursor point
-            cv2.circle(overlay, (cursor_x, cursor_y), 10, (0, 0, 255), -1)
-            cv2.circle(overlay, (cursor_x, cursor_y), 12, (255, 255, 255), 2)
-            
-            # Draw a line between index and middle finger
+        # Handle scroll when active
+        if scroll_active:
+            # Draw the scroll control points
+            cv2.circle(overlay, (hand_center_x, hand_center_y), 10, (0, 255, 255), -1)
             cv2.line(overlay, index_tip, middle_tip, (0, 255, 255), 2)
             
-            # Map cursor position to screen coordinates
-            nx = max(0.0, min(1.0, (cursor_x - x1) / control_w))
-            ny = max(0.0, min(1.0, (cursor_y - y1) / control_h))
+            # Calculate and perform scroll
+            if prev_hand_center_y is not None:
+                # Calculate vertical movement
+                y_diff = hand_center_y - prev_hand_center_y
+                
+                # Apply scroll only if movement exceeds threshold
+                if abs(y_diff) > SCROLL_THRESHOLD:
+                    # Determine scroll direction and amount
+                    scroll_amount = int(y_diff / SMOOTHING) 
+                    
+                    # Perform scroll (positive = down, negative = up)
+                    pyautogui.scroll(-scroll_amount * SCROLL_SENSITIVITY)
+                    
+                    # Show scroll direction
+                    direction = "DOWN" if y_diff > 0 else "UP"
+                    status_text = f"Scrolling {direction}"
+                    
+                    # Draw scroll direction indicator
+                    arrow_start = (w - 50, h - 70)
+                    arrow_end = (w - 50, h - 70 - (20 if y_diff < 0 else -20))
+                    cv2.arrowedLine(overlay, arrow_start, arrow_end, (0, 0, 255), 2, tipLength=0.5)
             
-            # Calculate target screen position
-            target_x = nx * screen_w
-            target_y = ny * screen_h
-            
-            # Apply smoothing for better user experience
-            smooth_x = prev_screen_x + (target_x - prev_screen_x) / SMOOTHING
-            smooth_y = prev_screen_y + (target_y - prev_screen_y) / SMOOTHING
-            
-            # Move the cursor
-            try:
-                pyautogui.moveTo(smooth_x, smooth_y)
-                prev_screen_x, prev_screen_y = smooth_x, smooth_y
-                status_text = "Active"
-            except Exception as e:
-                print(f"Error moving cursor: {e}")
+            # Update previous positions
+            prev_hand_center_y = hand_center_y
+            prev_index_y = index_tip[1]
+            prev_middle_y = middle_tip[1]
+        else:
+            # Reset previous positions when not scrolling
+            prev_hand_center_y = None
+            prev_index_y = None
+            prev_middle_y = None
+    else:
+        # Reset all previous positions when no hand is detected
+        prev_hand_center_y = None
+        prev_index_y = None 
+        prev_middle_y = None
     
     # Display status information
     cv2.putText(overlay, f"Status: {status_text}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 
-                (0, 255, 0) if cursor_active else (0, 0, 255), 2)
+                (0, 255, 0) if scroll_active else (0, 0, 255), 2)
     cv2.putText(overlay, f"FPS: {fps:.1f}", (w - 150, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
     
     # Show the final image
-    cv2.imshow('Hand Mouse Control', overlay)
+    cv2.imshow('Two-Finger Scroll Control', overlay)
     prev_time = now
     
     # Check for key presses

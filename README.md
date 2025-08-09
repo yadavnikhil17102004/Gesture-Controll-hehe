@@ -1,118 +1,153 @@
 # Hand Gesture Control using MediaPipe
 
-This Python project utilizes the [MediaPipe](https://mediapipe.dev/) library and [OpenCV](https://opencv.org/) to perform real-time hand gesture recognition. With this code, you can control your computer's cursor using hand gestures within a defined control box.
+This Python project utilizes the [MediaPipe](https://mediapipe.dev/) library and [OpenCV](https://opencv.org/) to perform real-time hand gesture recognition. With this code, you can control your computer's cursor, perform clicks, scroll, and even control system volume using hand gestures.
 
 ## Features
 
 - Detects and tracks hand landmarks in real time
 - Controls mouse cursor movement with smooth tracking
-- Supports mouse clicks using pinch gestures
-- Drag and drop functionality with pinch-and-hold gesture
-- Tab switching using swipe gestures
-- Visual feedback for active gestures
+- Simple and complex gesture recognition for various controls
+- Visual feedback showing gesture detection status
 - Provides a visual control box for easier interaction
 - Configurable sensitivity and smoothing parameters
 - Low CPU usage and responsive performance
+- Multi-hand control with dedicated functions:
+  - Right hand for cursor movement and clicking
+  - Left hand for scrolling
+- Dedicated scripts for specific controls like volume, scrolling, and keyboard input.
 
-## Prerequisites
+## Available Controls
 
-Before running the code, make sure you have the following dependencies installed:
+This collection of Python scripts uses MediaPipe hand tracking to control various aspects of your computer with different hand gestures. Each script is specialized for a specific control function.
 
-- Python 3.11 (MediaPipe is not compatible with Python 3.13)
-- OpenCV (`pip install opencv-python`)
-- MediaPipe (`pip install mediapipe`)
-- PyAutoGUI (`pip install pyautogui`)
+1.  **Mouse Control** (`main.py`)
+    -   Control mouse cursor movement using index and middle fingers
+    -   Simple and intuitive pointing interface
 
-You can install all dependencies at once using:
+2.  **Scroll Control** (`scroll_control.py`)
+    -   Dedicated scrolling interface using two fingers
+    -   Move hand up/down to scroll pages
+    -   Perfect for reading documents and browsing websites
+
+3.  **Volume Control** (`volume_control.py`)
+    -   Control system volume by adjusting the distance between thumb and index finger
+    -   Visual feedback showing current volume level
+    -   Requires `pycaw` library for Windows volume control
+
+4.  **Combo Control** (`combo_control.py`)
+    -   All-in-one control interface using both hands
+    -   Right hand: Control cursor movement and clicks (index+middle for movement, pinch to click)
+    -   Left hand: Control scrolling (index+middle fingers, move up/down to scroll)
+    -   Perfect for presentations and browsing
+
+5.  **Keyboard Control** (`keyboardtest.py`)
+    -   Control arrow keys using hand swipes
+    -   Trigger space key with rock gesture (thumb touching pinky base)
+    -   Experimental script for gesture-based keyboard input
+
+## Requirements
+
+-   Python 3.11 (MediaPipe is not compatible with Python 3.13)
+-   OpenCV (`pip install opencv-python`)
+-   MediaPipe (`pip install mediapipe`)
+-   PyAutoGUI (`pip install pyautogui`)
+-   PyCaw (for volume control only: `pip install pycaw`)
+
+Install all dependencies with:
 
 ```bash
-py -3.11 -m pip install opencv-python mediapipe pyautogui
+pip install opencv-python mediapipe pyautogui pycaw
 ```
 
 ## How to Use
 
-1. Clone this repository:
+Each script operates independently with a different control interface. Run them separately based on what functionality you need:
 
-   ```bash
-   git clone https://github.com/yadavnikhil17102004/Gesture-Controll-hehe.git
-   ```
+### Mouse Control
 
-2. Navigate to the project directory:
+```bash
+python main.py
+```
 
-   ```bash
-   cd Gesture-Controll-hehe
-   ```
+-   Show ONLY index and middle fingers up to activate mouse control
+-   Keep other fingers down for cursor tracking
 
-3. Run the code with Python 3.11:
+### Scroll Control
 
-   ```bash
-   py -3.11 main.py
-   ```
+```bash
+python scroll_control.py
+```
 
-4. A window titled "Hand Mouse Control" will open showing your webcam feed with a green control box.
-   - Move your index finger within the control box to control the mouse cursor
-   - Pinch your thumb and index finger together for a left click
-   - Hold the pinch gesture for 0.5 seconds to start dragging (mouse button stays down)
-   - Release the pinch to drop (release mouse button)
-   - Pinch your index and middle fingers together for a right click
-   - Swipe left/right for tab switching (ctrl+tab/ctrl+shift+tab)
-   - The control box maps to your entire screen for precise control
+-   Show index and middle fingers up to activate scrolling
+-   Move hand up/down within the control box to scroll pages
+-   Great for reading articles or browsing web pages
 
-5. To exit the program, press 'q' in the OpenCV window.
-6. To recalibrate the control box, press 'c' in the OpenCV window.
+### Volume Control
 
-## Customization Options
+```bash
+python volume_control.py
+```
 
-You can easily customize the program by modifying these parameters in the code:
+-   Show your hand with thumb and index finger extended
+-   Adjust distance between fingers to control volume
+-   Move fingers apart to increase volume, closer to decrease volume
 
-- `SMOOTHING` (default: 5): Higher values create smoother but slower cursor movement
-- `PINCH_ON` (default: 0.30): Threshold for pinch gesture (left click/drag)
-- `PINCH_OFF` (default: 0.50): Threshold for releasing pinch
-- `PINCH_HOLD_TIME` (default: 0.5): Time to hold pinch for drag operation
-- `TWO_PINCH_ON` (default: 0.28): Threshold for two-finger pinch (right click)
-- `CLICK_COOLDOWN` (default: 0.35): Minimum time between clicks
-- `SWIPE_WINDOW` (default: 0.35): Time window for swipe detection
-- `SWIPE_MIN_DIST_FRAC` (default: 0.25): Minimum distance for swipe as fraction of control box
-- `SWIPE_VEL_THRESH` (default: 600): Velocity threshold for swipe detection
-- `CALIBRATION_TIME` (default: 3.0): Duration of calibration in seconds
+### Combo Control
+
+```bash
+python combo_control.py
+```
+
+-   Right hand: Show index and middle fingers up to control mouse cursor
+-   Right hand: Pinch thumb and index finger for left-click
+-   Left hand: Show index and middle fingers up to enable scrolling
+-   Left hand: Move up/down to scroll pages
+
+### Keyboard Control
+
+```bash
+python keyboardtest.py
+```
+
+-   Use index finger to swipe in directions for arrow key presses
+-   Make a rock gesture (thumb touching pinky base) to press space bar
+-   Great for presentations or controlling media playback
 
 ## How It Works
 
-1. The program captures video from your webcam
-2. During startup, it runs a calibration phase where you move your hand to define the control box
-3. MediaPipe detects hand landmarks in real-time
-4. The program tracks several key gestures:
-   - **Mouse Movement**: Index finger position within the control box is mapped to screen coordinates
-   - **Left Click**: Detected when thumb and index finger pinch together briefly
-   - **Drag and Drop**: Detected when thumb and index finger pinch is held for more than 0.5 seconds
-   - **Right Click**: Detected when index and middle fingers pinch together
-   - **Tab Switching**: Swipe gestures trigger browser tab navigation shortcuts
-5. Visual feedback is displayed showing detection status, gesture information, and FPS
+1.  The program captures video from your webcam.
+2.  During startup, it runs a calibration phase where you move your hand to define the control box.
+3.  MediaPipe detects hand landmarks in real-time.
+4.  The program checks for specific finger positions to activate different controls:
+    -   For cursor control: index and middle fingers raised
+    -   For clicking: pinch gesture between thumb and index finger
+    -   For scrolling: index and middle fingers raised on left hand, movement up/down
+5.  Visual feedback is displayed showing detection status, gesture information, and FPS.
 
-The application uses normalized distances between landmarks to detect gestures, making it work consistently regardless of hand size or distance from the camera.
+The simplified approach makes it easy to control different computer functions with natural hand positions.
+
+## Customization
+
+Each script has its own set of parameters you can adjust:
+
+-   `SMOOTHING`: Higher values create smoother but slower response
+-   `CALIBRATION_TIME`: Duration of the initial hand tracking calibration
+-   Script-specific settings (e.g., `SCROLL_SENSITIVITY` in scroll control)
 
 ## Troubleshooting
 
-- **Camera not detected**: Make sure your webcam is properly connected and not being used by another application
-- **Jerky cursor movement**: Increase the `SMOOTHING` value for smoother movement
-- **Hand not detected**: Ensure proper lighting and try adjusting `min_detection_confidence` to a lower value
-- **Clicks not registering**: Try adjusting the `PINCH_ON` and `PINCH_OFF` thresholds
-- **Too many accidental clicks**: Increase the `CLICK_COOLDOWN` value
-- **Control box too small/large**: Press 'c' to recalibrate, and move your hand more/less during calibration
+-   **Camera not detected**: Make sure your webcam is properly connected and not being used by another application
+-   **Hand not detected**: Ensure proper lighting and try adjusting camera position
+-   **Inconsistent tracking**: Recalibrate by pressing 'c' during execution
+-   **Volume control not working**: Make sure pycaw is installed correctly
 
 ## Acknowledgments
 
 This project uses the [MediaPipe](https://mediapipe.dev/) library for hand landmark detection and tracking.
 
-## License
-
-This project is licensed under the MIT License.
-
 ## Author
 
-- Nikhil Yadav
-- GitHub: [yadavnikhil17102004](https://github.com/yadavnikhil17102004)
+-   Nikhil Yadav
+-   GitHub: [yadavnikhil17102004](https://github.com/yadavnikhil17102004)
 
-Feel free to contribute to this project and make it even more awesome! If you have any questions or suggestions, please open an issue or pull request.
-
-Enjoy controlling your computer with hand gestures! 🖐️🖥️
+Feel free to contribute or customize these scripts for your own needs!
